@@ -7,6 +7,9 @@ import com.marscommand.mod.network.JournalPagePayload;
 import com.marscommand.mod.network.MissionActionPayload;
 import com.marscommand.mod.network.MissionNoticePayload;
 import com.marscommand.mod.network.OpenJournalPayload;
+import com.marscommand.mod.identity.ArrivalService;
+import com.marscommand.mod.network.ArrivalActionPayload;
+import com.marscommand.mod.network.IdentitySettingsPayload;
 import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -46,6 +49,7 @@ public final class MoonDirector {
     private final MinecraftServer server;
     private final MoonSavedData data;
     private final MissionRules rules;
+    private final ArrivalService arrivals;
     private final ActiveClock clock = new ActiveClock(System.nanoTime());
     private long nextSchedule;
     private final Map<String, Refusal> confirmations = new java.util.HashMap<>();
@@ -75,6 +79,7 @@ public final class MoonDirector {
         this.server = server;
         this.rules = rules;
         this.data = data;
+        arrivals = new ArrivalService(server, data.state, data::setDirty);
         nextSchedule = data.state.activeMillis + rules.schedulerMillis();
     }
 
@@ -128,6 +133,7 @@ public final class MoonDirector {
     public static void tick(ServerTickEvent.Post event) {
         if (current != null && current.server == event.getServer()) {
             current.updateClock();
+            current.arrivals.tick();
             if (current.state().activeMillis >= current.nextSchedule) {
                 current.nextSchedule = current.state().activeMillis + current.rules.schedulerMillis();
                 current.schedule();
@@ -139,6 +145,7 @@ public final class MoonDirector {
         if (current != null && current.server == event.getServer()) {
             current.updateClock();
             current.data.setDirty();
+            current.arrivals.close();
             current = null;
         }
     }
@@ -148,11 +155,15 @@ public final class MoonDirector {
             MoonDirector director = current;
             director.updateClock();
             director.expireMissions();
+            director.arrivals.login(player);
         }
     }
 
     public static void logout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (current != null) {
+            if (event.getEntity() instanceof ServerPlayer player) {
+                current.arrivals.logout(player);
+            }
             String uuid = event.getEntity().getStringUUID();
             current.journals.remove(uuid);
             current.journalRequests.remove(uuid);
@@ -176,6 +187,14 @@ public final class MoonDirector {
 
     public MissionRules rules() {
         return rules;
+    }
+
+    public void arrivalAction(ServerPlayer player, ArrivalActionPayload payload) {
+        arrivals.action(player, payload);
+    }
+
+    public void identitySettings(ServerPlayer player, IdentitySettingsPayload payload) {
+        arrivals.configure(player, payload);
     }
 
     private void updateClock() {
@@ -258,6 +277,7 @@ public final class MoonDirector {
 
     private boolean ready(ServerPlayer player, MissionRules.Template template) {
         return gameplayPlayer(player) && player.getHealth() >= 3
+                && arrivals.ready(player)
                 && !state().hasAssignment(player.getStringUUID())
                 && state().player(player.getStringUUID()).nextAssignmentMillis <= state().activeMillis
                 && readiness(player, template) >= rules.readinessThreshold();
@@ -307,6 +327,7 @@ public final class MoonDirector {
     private void replace(MissionState.Mission mission) {
         ServerPlayer candidate = server.getPlayerList().getPlayers().stream()
                 .filter(MoonDirector::gameplayPlayer)
+                .filter(arrivals::ready)
                 .filter(player -> mission.history.stream().noneMatch(owner -> owner.player.equals(player.getStringUUID())))
                 .min(Comparator.comparingDouble((ServerPlayer player) -> MissionLogic.distance(mission.target,
                                 player.level().dimension().location().toString(), player.getX(), player.getY(), player.getZ(), rules))

@@ -7,6 +7,9 @@ runs/
 .classpath
 .project
 .settings/
+.env
+.env.*
+!.env.example
 # Compiled class file
 *.class
 

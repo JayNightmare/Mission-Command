@@ -25,6 +25,26 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder("mars_command")
 @PrefixGameTestTemplate(false)
 public final class MoonRuntimeTests {
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void websiteRolesCannotChangeServerIdentitySettings(GameTestHelper helper) {
+        TestPlayer player = player(helper, "moon-owner-test", 0);
+        try {
+            MoonDirector director = director(helper);
+            director.state().player(player.getStringUUID()).accountRoles = java.util.List.of("admin");
+            boolean rejected = false;
+            try {
+                director.identitySettings(player, new com.marscommand.mod.network.IdentitySettingsPayload(
+                        false, "https://api.example", "https://site.example"));
+            } catch (IllegalArgumentException expected) {
+                rejected = true;
+            }
+            helper.assertTrue(rejected, "Website roles must never grant Minecraft configuration authority");
+            helper.succeed();
+        } finally {
+            remove(player);
+        }
+    }
+
     private static final class TestPlayer extends ServerPlayer {
         final List<String> messages = new ArrayList<>();
 

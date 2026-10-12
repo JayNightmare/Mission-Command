@@ -24,6 +24,14 @@ public final class MissionState {
         public int handovers;
         public int expiries;
         public long nextAssignmentMillis;
+        public String callSign = "";
+        public String remoteCallSign = "";
+        public String identityAuthority = "";
+        public boolean arrivalConfirmed;
+        public boolean arrivalWelcomed;
+        public String remoteWelcomeAuthority = "";
+        public String accountName = "";
+        public List<String> accountRoles = new ArrayList<>();
     }
 
     public static final class Ownership {
@@ -93,7 +101,17 @@ public final class MissionState {
             UUID.fromString(uuid);
             MissionRules.require(player != null && player.nextAssignmentMillis >= 0 && player.completions >= 0
                     && player.refusals >= 0 && player.handovers >= 0 && player.expiries >= 0, "Invalid player statistics");
+            MissionRules.require(player.callSign != null && (player.callSign.isEmpty() || player.callSign.matches("[0-9]{4}"))
+                    && player.remoteCallSign != null && (player.remoteCallSign.isEmpty() || player.remoteCallSign.matches("[0-9]{4}"))
+                    && player.identityAuthority != null && player.remoteWelcomeAuthority != null && player.accountName != null
+                    && player.accountName.length() <= 100 && player.accountRoles != null && player.accountRoles.size() <= 64
+                    && player.accountRoles.stream().allMatch(role -> role != null && role.length() <= 64),
+                    "Invalid persisted player identity");
+            MissionRules.require(!player.arrivalConfirmed || (!player.remoteCallSign.isEmpty()
+                    && !player.identityAuthority.isEmpty() && !player.accountName.isEmpty()), "Incomplete confirmed player identity");
         });
+        List<String> localSigns = players.values().stream().map(player -> player.callSign).filter(sign -> !sign.isEmpty()).toList();
+        MissionRules.require(localSigns.stream().distinct().count() == localSigns.size(), "Duplicate local callsign");
         missions.forEach((id, mission) -> {
             MissionRules.require(mission != null && id != null && id == mission.id && id > 0 && id < nextMissionId,
                     "Invalid persisted mission ID");

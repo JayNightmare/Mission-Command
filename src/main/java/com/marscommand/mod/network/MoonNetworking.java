@@ -19,7 +19,15 @@ public final class MoonNetworking {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("2");
+        var registrar = event.registrar("3");
+        registrar.playToClient(ArrivalStatePayload.TYPE, ArrivalStatePayload.CODEC,
+                (payload, context) -> context.enqueueWork(() -> com.marscommand.mod.client.MoonClient.receiveArrival(payload)));
+        registrar.playToServer(ArrivalActionPayload.TYPE, ArrivalActionPayload.CODEC,
+                (payload, context) -> context.enqueueWork(() -> server(context,
+                        (director, player) -> director.arrivalAction(player, payload))));
+        registrar.playToServer(IdentitySettingsPayload.TYPE, IdentitySettingsPayload.CODEC,
+                (payload, context) -> context.enqueueWork(() -> server(context,
+                        (director, player) -> director.identitySettings(player, payload))));
         registrar.playToClient(TransmissionPayload.TYPE, TransmissionPayload.CODEC,
                 (payload, context) -> context.enqueueWork(() -> com.marscommand.mod.client.MoonClient.receive(payload)));
         registrar.playToClient(JournalPagePayload.TYPE, JournalPagePayload.CODEC,

@@ -11,7 +11,7 @@ and contribute to a hidden, shared server objective.
 | Minecraft | 1.21.1 (exact) |
 | NeoForge | 21.1.250 (exact) |
 | Java | 21 |
-| Mod | 0.3.0 |
+| Mod | 0.4.0 |
 
 The same JAR supports the client and dedicated server. It has no client-only
 classes in its dedicated-server path or additional mod dependencies. Compatibility with the full Mars
@@ -71,7 +71,49 @@ The screen refreshes automatically and has a manual **Refresh** button; timeouts
 are reported explicitly.
 
 Both client and server must use the new mod version: the GUI uses networking
-protocol 2. Existing version-0.2.0 saved mission data needs no migration.
+protocol 3. Existing version-0.2.0/0.3.0 saved mission data is retained; missing
+identity fields initialize without resetting scores or missions.
+
+### Player arrival and callsigns
+
+New players receive a permanent **four-digit callsign**, including leading
+zeros, in addition to their full Minecraft UUID. Callsigns are display names,
+not passwords or ownership proofs. Each registry has a maximum of 10,000 IDs;
+exhaustion reports an error and never recycles an existing player's ID.
+
+- **Single-player/integrated worlds:** allocate callsigns locally in saved
+  world data. No website login or remote API is required.
+- **Dedicated servers with linking disabled:** use the same local registry.
+- **Dedicated servers with linking enabled:** the configured API owns the
+  permanent registry. The mod types:
+  `Welcome to the Overworld, Player 0427. The Moon requires confirmation of your arrival.`
+  No arrival strike or health loss is added.
+
+Open **MC -> Player ID** to use the website confirmation button. Minecraft
+asks before opening the browser. The website uses the existing GitHub login
+route, displays the callsign/player name, and requires explicit arrival
+approval. Return to **Player ID**, review the approved account, then select
+**Confirm as ...**. Website approval alone does not finalize the link.
+
+Until confirmation, enabled servers exclude the player from **both normal
+assignments and emergency handovers**. The player can still explore and use
+the interface. Existing missions are not erased by enabling linking.
+
+Expired or unavailable requests have an explicit retry state. Reconnecting or
+starting a new link revokes earlier pending challenges. No website/session
+credential or secret device code is sent to the game client or written into
+world data. Only the public opaque verification URL reaches the player's GUI.
+
+Previously confirmed players may continue during API outages using the
+saved confirmation **for the same API origin**; the interface marks remote
+context as stale. New/unconfirmed players wait. A successful remote response
+that reports an unconfirmed identity removes the cached confirmation.
+Changing API origins does not trust the old API's confirmation.
+
+The server periodically retrieves only callsign, Minecraft UUID, confirmation,
+linked account display name, and server-approved roles. This prepares limited
+context for future Moon intelligence; no model is called, no private profiles
+or files are fetched, and website roles never grant Minecraft operator status.
 
 The following commands remain available as shortcuts:
 
@@ -117,6 +159,38 @@ reduce the penalty. Rank affects normal assignment frequency, maximum template
 difficulty, supply quantity, and deadline duration.
 
 ## Server administration
+
+### Website linking setup
+
+1. Deploy the updated backend and website together. Configure the backend's
+   existing GitHub OAuth/session settings and exact public origins.
+2. Generate a separate random URL-safe credential, 32..128 characters, and
+   inject `MARS_MINECRAFT_SERVER_TOKEN` into **both backend and Minecraft
+   server processes**. Do not reuse package/community JWT secrets.
+   `.env.example` is only a template; the Java mod does not auto-load dotenv.
+3. Keep the Minecraft server in `online-mode=true`, so account linking is
+   based on authenticated Minecraft UUIDs rather than spoofable offline names.
+4. A level-4 operator opens **MC -> Player ID -> Server Settings**.
+   Enter the trusted **API origin** and **website origin** (no `/api`,
+   `/auth/login`, query, or fragment), enable linking, and save.
+   The website origin must match the API's `WEBSITE_URL`.
+
+The menu stores only the enable flag and public origins in
+`<world>\serverconfig\mars-command-identity.json`. Integration credentials
+remain in the server environment, never in that menu, client packets, or
+the distributed JAR. Choosing an API origin authorizes sending the credential
+to that server; only trusted operators may change it.
+
+Linking is **disabled by default**, preserving offline-capable development
+and existing server setup. Single-player ignores the enable flag.
+Invalid identity configuration fails closed for dedicated-server assignments
+with an explicit server error. Repair it through the operator menu/file.
+HTTP is rejected except deliberate loopback development with
+`MARS_COMMAND_ALLOW_LOCAL_HTTP=true`.
+
+The registry's one-account/one-Minecraft-player link cannot be silently changed
+or reassigned through the player UI. Account recovery/rebinding remains an
+operator-controlled database procedure, not an automatic fallback.
 
 On the first world startup, the mod creates
 `<world>\serverconfig\mars-command.json`. This **server-local** JSON contains
@@ -203,7 +277,7 @@ dependencies, so it needs internet access and can take several minutes.
 .\gradlew.bat build
 ```
 
-The distributable is `build\libs\mars-command-mod-0.3.0.jar`. Copy this JAR into
+The distributable is `build\libs\mars-command-mod-0.4.0.jar`. Copy this JAR into
 the `mods` directory of a Minecraft 1.21.1 / NeoForge 21.1.250 installation while
 Minecraft is closed. For the managed Mars client pack, include the JAR in the
 signed pack release rather than placing an unlisted file in the managed
@@ -218,11 +292,11 @@ On Linux or macOS, invoke the wrapper with `sh gradlew build`.
 ```
 
 This uses an isolated `run\client` game directory. At the title screen, open
-**Mods** and confirm that **Mars Command 0.3.0** appears. Its
+**Mods** and confirm that **Mars Command 0.4.0** appears. Its
 `run\client\logs\latest.log` should contain:
 
 ```text
-Loading Mars Command 0.3.0
+Loading Mars Command 0.4.0
 Mars Command initialized (mod id: mars_command)
 ```
 
@@ -261,6 +335,9 @@ emergency assignments, abbreviated-message privacy, and lightning safety.
 GUI tests cover personal-record filtering, no future placeholders, bounded
 pagination, packet roundtrips, typewriter Unicode/queue behavior, and
 server-validated GUI actions.
+Arrival tests also cover callsign stability/capacity, legacy saved players,
+safe link URLs, authority-bound cached confirmations, bounded HTTP responses,
+and the server-only API client using local HTTP fixtures.
 GameTest classes/structures are development-only and are not in the
 distributable JAR. A full-modpack authenticated play test is still needed
 before deploying a signed pack update.

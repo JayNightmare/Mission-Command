@@ -154,6 +154,8 @@ public final class MissionScreen extends Screen {
                 .bounds(right() + buttonWidth + 6, height - 66, buttonWidth, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("gui.mars_command.refresh"),
                 ignored -> MoonClient.requestJournal()).bounds(12, height - 28, 80, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("arrival.mars_command.title"),
+                ignored -> minecraft.setScreen(new ArrivalScreen(this))).bounds(width / 2 - 45, height - 28, 90, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("gui.mars_command.close"),
                 ignored -> onClose()).bounds(width - 92, height - 28, 80, 20).build());
         controls();
@@ -204,6 +206,10 @@ public final class MissionScreen extends Screen {
         graphics.drawString(font, MoonClient.loaded()
                 ? Component.translatable("message.mars_command.status", MoonClient.score(), MoonClient.rank())
                 : Component.translatable("gui.mars_command.loading"), 14, 34, 0xFFE6F1F4);
+        if (MoonClient.arrival() != null && !MoonClient.arrival().callSign().isEmpty()) {
+            graphics.drawString(font, Component.translatable("arrival.mars_command.player_id", MoonClient.arrival().callSign()),
+                    14, 45, 0xFFACBDC8);
+        }
         graphics.fill(12, treeTop(), 12 + treeWidth(), treeBottom(), 0xFF0D2030);
         graphics.fill(right(), treeTop(), width - 12, detailBottom(), 0xFF0D2030);
         graphics.enableScissor(12, treeTop(), 12 + treeWidth(), treeBottom());

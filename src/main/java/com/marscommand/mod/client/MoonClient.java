@@ -5,6 +5,8 @@ import com.marscommand.mod.network.JournalRequestPayload;
 import com.marscommand.mod.network.JournalPagePayload;
 import com.marscommand.mod.network.MissionActionPayload;
 import com.marscommand.mod.network.MissionNoticePayload;
+import com.marscommand.mod.network.ArrivalStatePayload;
+import com.marscommand.mod.network.ArrivalActionPayload;
 import com.marscommand.mod.mission.MissionJournal;
 import com.mojang.logging.LogUtils;
 import java.util.List;
@@ -48,6 +50,7 @@ public final class MoonClient {
     private static long actionMillis;
     private static long confirmationMission;
     private static long confirmationUntilMillis;
+    private static ArrivalStatePayload arrival;
 
     private MoonClient() {}
 
@@ -132,6 +135,25 @@ public final class MoonClient {
         }
         if (Minecraft.getInstance().screen instanceof MissionScreen screen) {
             screen.notice(payload.message(), payload.error());
+        } else if (Minecraft.getInstance().screen instanceof ArrivalScreen screen) {
+            screen.notice(payload.message());
+        } else if (Minecraft.getInstance().screen instanceof IdentitySettingsScreen screen) {
+            screen.notice(payload.message());
+        }
+    }
+
+    public static void receiveArrival(ArrivalStatePayload payload) {
+        arrival = payload;
+    }
+
+    public static ArrivalStatePayload arrival() {
+        return arrival;
+    }
+
+    public static void arrivalAction(ArrivalActionPayload.Action action) {
+        if (Minecraft.getInstance().getConnection() != null) {
+            PacketDistributor.sendToServer(new ArrivalActionPayload(action,
+                    arrival == null ? "" : arrival.requestId(), arrival == null ? "" : arrival.accountName()));
         }
     }
 
@@ -200,6 +222,7 @@ public final class MoonClient {
         score = 0;
         snapshotMillis = lastRequestMillis = 0;
         confirmationMission = confirmationUntilMillis = 0;
+        arrival = null;
         actionPending = false;
         TRANSMISSIONS.clear();
         INVENTORY_BUTTONS.clear();
@@ -256,7 +279,9 @@ public final class MoonClient {
             return;
         }
         int width = Math.min(420, graphics.guiWidth() - 16);
-        int height = Math.min(minecraft.screen instanceof MissionScreen ? 48 : 124, graphics.guiHeight() / 3);
+        boolean commandScreen = minecraft.screen instanceof MissionScreen || minecraft.screen instanceof ArrivalScreen
+                || minecraft.screen instanceof IdentitySettingsScreen;
+        int height = Math.min(commandScreen ? 32 : 124, graphics.guiHeight() / 3);
         int x = (graphics.guiWidth() - width) / 2;
         int y = 8;
         graphics.pose().pushPose();

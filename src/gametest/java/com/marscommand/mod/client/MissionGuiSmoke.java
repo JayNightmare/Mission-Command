@@ -83,6 +83,9 @@ public final class MissionGuiSmoke {
                     });
                 }
                 case 6 -> {
+                    MissionRules.require(MoonClient.arrival() != null && MoonClient.arrival().state().equals("local")
+                            && MoonClient.arrival().confirmed() && MoonClient.arrival().callSign().matches("[0-9]{4}"),
+                            "Single-player must receive a local callsign without website confirmation");
                     minecraft.setScreen(new InventoryScreen(minecraft.player));
                     minecraft.player.inventoryMenu.setCarried(new ItemStack(Items.STONE));
                     stage = 7;
@@ -146,11 +149,27 @@ public final class MissionGuiSmoke {
                 }
                 case 14 -> {
                     if (ticks >= 5) {
-                        stage = 11;
+                        stage = 15;
                         Screenshot.grab(minecraft.gameDirectory, "mars-command-completed.png", minecraft.getMainRenderTarget(),
                                 message -> minecraft.execute(() -> {
-                                    LogUtils.getLogger().info("MARS_COMMAND_GUI_SMOKE_PASSED: inventory, private tree, "
-                                            + "typewriter, and GUI supply submission. {}", message.getString());
+                                    LogUtils.getLogger().info("GUI smoke screenshot: {}", message.getString());
+                                    minecraft.setScreen(new ArrivalScreen(minecraft.screen));
+                                    ticks = 0;
+                                    stage = 16;
+                                }));
+                    }
+                }
+                case 16 -> {
+                    if (ticks >= 10) {
+                        Button website = minecraft.screen.children().stream().filter(Button.class::isInstance)
+                                .map(Button.class::cast).filter(button -> button.getMessage().getString().equals("Open Confirmation Website"))
+                                .findFirst().orElseThrow(() -> new IllegalStateException("Missing arrival website control"));
+                        MissionRules.require(!website.active, "Single-player must not request website linking");
+                        stage = 11;
+                        Screenshot.grab(minecraft.gameDirectory, "mars-command-player-id.png", minecraft.getMainRenderTarget(),
+                                message -> minecraft.execute(() -> {
+                                    LogUtils.getLogger().info("MARS_COMMAND_GUI_SMOKE_PASSED: inventory, tree, typewriter, "
+                                            + "GUI submission and local player callsign. {}", message.getString());
                                     minecraft.stop();
                                 }));
                     }
