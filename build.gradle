@@ -1,0 +1,144 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = 'mars-command-mod'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.12.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation "net.neoforged:testframework:${neo_version}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+}
+
+sourceSets {
+    gametest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+def generateGameTestStructure = tasks.register('generateGameTestStructure') {
+    def destination = layout.buildDirectory.file('generated/gametest/data/mars_command/structure/empty.nbt')
+    outputs.dir layout.buildDirectory.dir('generated/gametest')
+    doLast {
+        def file = destination.get().asFile
+        file.parentFile.mkdirs()
+        new DataOutputStream(new java.util.zip.GZIPOutputStream(new FileOutputStream(file))).withCloseable { output ->
+            output.writeByte(10)
+            output.writeUTF('')
+            output.writeByte(3)
+            output.writeUTF('DataVersion')
+            output.writeInt(3955)
+            output.writeByte(9)
+            output.writeUTF('size')
+            output.writeByte(3)
+            output.writeInt(3)
+            [5, 5, 5].each { output.writeInt(it) }
+            output.writeByte(9)
+            output.writeUTF('palette')
+            output.writeByte(10)
+            output.writeInt(1)
+            output.writeByte(8)
+            output.writeUTF('Name')
+            output.writeUTF('minecraft:air')
+            output.writeByte(0)
+            ['blocks', 'entities'].each {
+                output.writeByte(9)
+                output.writeUTF(it)
+                output.writeByte(10)
+                output.writeInt(0)
+            }
+            output.writeByte(0)
+        }
+    }
+}
+sourceSets.gametest.resources.srcDir generateGameTestStructure
+
+neoForge {
+    version = neo_version
+    addModdingDependenciesTo sourceSets.gametest
+
+    runs {
+        client {
+            client()
+            gameDirectory = project.file('run/client')
+        }
+
+        clientGuiTest {
+            client()
+            gameDirectory = project.file('run/client')
+            systemProperty 'marscommand.guiSmoke', 'true'
+            programArguments.addAll '--quickPlaySingleplayer', 'MarsCommandGuiTest'
+        }
+
+        server {
+            server()
+            gameDirectory = project.file('run/server')
+            programArgument '--nogui'
+        }
+
+        gameTestServer {
+            type = 'gameTestServer'
+            gameDirectory = project.file('run/gametest')
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.gametest
+        }
+    }
+
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
+    }
+}
+
+def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    def properties = [
+        minecraft_version: minecraft_version,
+        neo_version: neo_version,
+        loader_version_range: loader_version_range,
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_license: mod_license,
+        mod_version: mod_version
+    ]
+    inputs.properties properties
+    expand properties
+    from 'src/main/templates'
+    into layout.buildDirectory.dir('generated/sources/modMetadata')
+}
+
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}

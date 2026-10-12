@@ -1,0 +1,93 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Client",
+      "presentation": {
+        "group": "Mod Development - mars-command-mod",
+        "order": 0
+      },
+      "projectName": "mars-command-mod",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\build\\moddev\\clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dmars_command%%D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\bin\\main;mars_command%%D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\bin\\gametest"
+      ],
+      "cwd": "${workspaceFolder}\\run\\client",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "ClientGuiTest",
+      "presentation": {
+        "group": "Mod Development - mars-command-mod",
+        "order": 1
+      },
+      "projectName": "mars-command-mod",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\build\\moddev\\clientGuiTestRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\build\\moddev\\clientGuiTestRunVmArgs.txt",
+        "-Dfml.modFolders\u003dmars_command%%D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\bin\\main;mars_command%%D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\bin\\gametest"
+      ],
+      "cwd": "${workspaceFolder}\\run\\client",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "GameTestServer",
+      "presentation": {
+        "group": "Mod Development - mars-command-mod",
+        "order": 2
+      },
+      "projectName": "mars-command-mod",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\build\\moddev\\gameTestServerRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\build\\moddev\\gameTestServerRunVmArgs.txt",
+        "-Dfml.modFolders\u003dmars_command%%D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\bin\\main;mars_command%%D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\bin\\gametest"
+      ],
+      "cwd": "${workspaceFolder}\\run\\gametest",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Server",
+      "presentation": {
+        "group": "Mod Development - mars-command-mod",
+        "order": 3
+      },
+      "projectName": "mars-command-mod",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\build\\moddev\\serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\build\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dmars_command%%D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\bin\\main;mars_command%%D:\\Documents\\Personal-Projects\\Mars-Command\\mars-command-mod\\bin\\gametest"
+      ],
+      "cwd": "${workspaceFolder}\\run\\server",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    }
+  ]
+}
