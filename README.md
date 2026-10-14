@@ -175,6 +175,38 @@ difficulty, supply quantity, and deadline duration.
    `/auth/login`, query, or fragment), enable linking, and save.
    The website origin must match the API's `WEBSITE_URL`.
 
+#### Crafty Controller
+
+Crafty has no per-server environment variable field, but servers inherit the
+environment of the process that launches them. Use either option:
+
+- **Wrapper script (recommended):** create a start script in the server
+  directory, restrict its permissions, and set it as the server's
+  **Execution Command** in Crafty.
+
+  Linux/macOS (`start.sh`, then `chmod 700 start.sh`; command: `sh start.sh`):
+
+  ```sh
+  #!/bin/sh
+  export MARS_MINECRAFT_SERVER_TOKEN='<your-32-to-128-char-token>'
+  java @user_jvm_args.txt @libraries/net/neoforged/neoforge/21.1.250/unix_args.txt "@"
+  ```
+
+  Windows (`start.bat`; command: `cmd /c start.bat`):
+
+  ```bat
+  @echo off
+  set "MARS_MINECRAFT_SERVER_TOKEN=<your-32-to-128-char-token>"
+  java @user_jvm_args.txt @libraries/net/neoforged/neoforge/21.1.250/win_args.txt "@"
+  ```
+
+- **Docker:** add the variable to the Crafty container
+  (`-e MARS_MINECRAFT_SERVER_TOKEN=...` or `environment:` in compose). It
+  applies to every server managed by that container.
+
+Restart the server from Crafty afterwards. Keep the token out of version
+control and the pack release.
+
 The menu stores only the enable flag and public origins in
 `<world>\serverconfig\mars-command-identity.json`. Integration credentials
 remain in the server environment, never in that menu, client packets, or
