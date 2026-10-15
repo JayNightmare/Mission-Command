@@ -27,7 +27,15 @@ public record MissionRules(
 
     public record Requirement(String template, int completions) {}
 
-    public record Goal(String id, List<Requirement> requirements) {}
+    public record ResourceNeed(String template, int quantity) {}
+
+    public record Phase(String id, List<ResourceNeed> resources) {}
+
+    public record Goal(String id, List<Requirement> requirements, List<Phase> phases) {
+        public Goal(String id, List<Requirement> requirements) {
+            this(id, requirements, List.of());
+        }
+    }
 
     public static MissionRules defaults(double x, double y, double z) {
         Target depot = new Target("minecraft:overworld", x, y, z, 8);
@@ -48,12 +56,29 @@ public record MissionRules(
                                 depot, "minecraft:iron_ingot", 16, List.of(), 1, 600000),
                         new Template("survey_point", Kind.ARRIVAL,
                                 "Mars Command requires a ground survey. Approach and reach the designated coordinates.",
-                                waypoint, "", 1, List.of(), 1, 600000)),
+                                waypoint, "", 1, List.of(), 1, 600000),
+                        delivery("copper_delivery", depot, "minecraft:copper_ingot", 16),
+                        delivery("redstone_delivery", depot, "minecraft:redstone", 32),
+                        delivery("gold_delivery", depot, "minecraft:gold_ingot", 16),
+                        delivery("diamond_delivery", depot, "minecraft:diamond", 8)),
                 List.of(
                         new Goal("supply_network", List.of(new Requirement("iron_delivery", 3),
                                 new Requirement("survey_point", 2))),
                         new Goal("survey_network", List.of(new Requirement("survey_point", 3),
-                                new Requirement("iron_delivery", 2)))));
+                                new Requirement("iron_delivery", 2))),
+                        new Goal("space_elevator", List.of(), List.of(
+                                new Phase("foundations", List.of(new ResourceNeed("iron_delivery", 256),
+                                        new ResourceNeed("copper_delivery", 128))),
+                                new Phase("power", List.of(new ResourceNeed("redstone_delivery", 256),
+                                        new ResourceNeed("gold_delivery", 64))),
+                                new Phase("assembly", List.of(new ResourceNeed("diamond_delivery", 32),
+                                        new ResourceNeed("iron_delivery", 512)))))));
+    }
+
+    private static Template delivery(String id, Target depot, String item, int quantity) {
+        return new Template(id, Kind.DELIVERY,
+                "The Moon requires material reserves. Deliver the assigned supplies to the designated depot.",
+                depot, item, quantity, List.of(), 1, 600000);
     }
 
     public void validate() {
@@ -121,7 +146,27 @@ public record MissionRules(
             require(goal != null, "Null goal");
             key(goal.id());
             require(goalIds.add(goal.id()), "Duplicate goal: " + goal.id());
-            require(goal.requirements() != null && !goal.requirements().isEmpty(), "Empty goal: " + goal.id());
+            List<Phase> phases = goal.phases() == null ? List.of() : goal.phases();
+            require(goal.requirements() != null && (!goal.requirements().isEmpty() || !phases.isEmpty()),
+                    "Empty goal: " + goal.id());
+            require(phases.size() <= 32, "Too many phases: " + goal.id());
+            Set<String> phaseIds = new HashSet<>();
+            for (Phase phase : phases) {
+                require(phase != null, "Null phase");
+                key(phase.id());
+                require(phaseIds.add(phase.id()), "Duplicate phase: " + phase.id());
+                require(phase.resources() != null && !phase.resources().isEmpty() && phase.resources().size() <= 32,
+                        "Phase needs 1..32 resources: " + phase.id());
+                Set<String> items = new HashSet<>();
+                for (ResourceNeed need : phase.resources()) {
+                    require(need != null && need.template() != null && ids.contains(need.template())
+                                    && need.quantity() >= 1 && need.quantity() <= 1000000,
+                            "Invalid resource need in phase: " + phase.id());
+                    Template source = template(need.template());
+                    require(source.kind() == Kind.DELIVERY && items.add(source.item()),
+                            "Resource needs must be distinct delivery templates: " + phase.id());
+                }
+            }
             Set<String> requirements = new HashSet<>();
             for (Requirement requirement : goal.requirements()) {
                 require(requirement != null && ids.contains(requirement.template())

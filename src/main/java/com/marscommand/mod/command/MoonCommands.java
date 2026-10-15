@@ -56,6 +56,7 @@ public final class MoonCommands {
                         .then(Commands.literal("inspect").executes(context -> execute(context, (ctx, director) -> {
                             ctx.getSource().sendSuccess(() -> Component.literal("Operator-only Mars Command state: goal="
                                     + director.state().goalId + ", progress=" + director.state().goalProgress
+                                    + ", phase=" + director.state().phaseIndex + ", totals=" + director.state().phaseTotals
                                     + ", activeMillis=" + director.state().activeMillis), false);
                             return 1;
                         })))

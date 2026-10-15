@@ -62,12 +62,16 @@ public final class MissionLogic {
         if (mission.status != Status.ACTIVE || mission.progress < 1 || state.activeMillis >= mission.deadlineMillis) {
             return false;
         }
-        MissionRules.Requirement requirement = rules.goal(state.goalId).requirements().stream()
-                .filter(candidate -> candidate.template().equals(mission.templateId)).findFirst()
-                .orElseThrow(() -> new IllegalStateException("Mission does not belong to the selected plan"));
+        MissionRules.Goal goal = rules.goal(state.goalId);
+        boolean phased = GrandPlan.phased(goal);
         int previous = state.goalProgress.getOrDefault(mission.templateId, 0);
-        if (previous >= requirement.completions()) {
-            throw new IllegalStateException("Mission would over-credit a fulfilled plan requirement");
+        if (!phased) {
+            MissionRules.Requirement requirement = goal.requirements().stream()
+                    .filter(candidate -> candidate.template().equals(mission.templateId)).findFirst()
+                    .orElseThrow(() -> new IllegalStateException("Mission does not belong to the selected plan"));
+            if (previous >= requirement.completions()) {
+                throw new IllegalStateException("Mission would over-credit a fulfilled plan requirement");
+            }
         }
         mission.status = Status.COMPLETED;
         MissionState.Player player = state.player(mission.owner);
@@ -76,7 +80,9 @@ public final class MissionLogic {
         cooldown(state, player, rules);
         mission.currentOwnership().endReason = "completed";
         mission.currentOwnership().scoreChange = rules.completionPoints();
-        state.goalProgress.put(mission.templateId, previous + 1);
+        if (!phased) {
+            state.goalProgress.put(mission.templateId, previous + 1);
+        }
         return true;
     }
 

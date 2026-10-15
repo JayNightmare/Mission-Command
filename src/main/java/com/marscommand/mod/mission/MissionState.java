@@ -12,6 +12,8 @@ public final class MissionState {
     public long nextMissionId = 1;
     public String goalId = "";
     public Map<String, Integer> goalProgress = new LinkedHashMap<>();
+    public int phaseIndex;
+    public Map<String, Long> phaseTotals = new LinkedHashMap<>();
     public Map<String, Player> players = new LinkedHashMap<>();
     public Map<Long, Mission> missions = new LinkedHashMap<>();
 
@@ -90,6 +92,12 @@ public final class MissionState {
         MissionRules.require(schemaVersion == 1, "Unsupported mission-state schema: " + schemaVersion);
         MissionRules.require(activeMillis >= 0 && nextMissionId >= 1 && goalId != null, "Invalid persisted clock/goal");
         MissionRules.require(goalProgress != null && players != null && missions != null, "Missing mission-state maps");
+        MissionRules.require(phaseIndex >= 0 && phaseTotals != null && phaseTotals.entrySet().stream()
+                .allMatch(entry -> entry.getKey() != null && entry.getValue() != null && entry.getValue() >= 0),
+                "Invalid persisted phase state");
+        if (!goalId.isEmpty()) {
+            MissionRules.require(phaseIndex <= GrandPlan.phases(rules.goal(goalId)).size(), "Invalid persisted phase index");
+        }
         if (!goalId.isEmpty()) {
             MissionRules.Goal goal = rules.goal(goalId);
             goalProgress.forEach((template, count) -> MissionRules.require(count != null && count >= 0

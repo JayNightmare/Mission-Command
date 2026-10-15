@@ -51,6 +51,8 @@ public final class MoonDirector {
     private final MissionRules rules;
     private final ArrivalService arrivals;
     private final ActiveClock clock = new ActiveClock(System.nanoTime());
+    private final MissionPlanner planner = RemotePlanner.fromEnvironment()
+            .map(remote -> (MissionPlanner) remote).orElseGet(MissionPlanner.Heuristic::new);
     private long nextSchedule;
     private final Map<String, Refusal> confirmations = new java.util.HashMap<>();
     private final Map<String, JournalSession> journals = new java.util.HashMap<>();
@@ -118,7 +120,8 @@ public final class MoonDirector {
             }
             if (data.state.goalId.isEmpty()) {
                 int index = Math.floorMod(server.overworld().getSeed(), rules.goals().size());
-                data.state.goalId = rules.goals().get(index).id();
+                data.state.goalId = rules.goals().stream().filter(GrandPlan::phased).findFirst()
+                        .orElse(rules.goals().get(index)).id();
             }
             current = new MoonDirector(server, rules, data);
             data.setDirty();
@@ -247,6 +250,10 @@ public final class MoonDirector {
 
     private void assignNormal() {
         MissionRules.Goal goal = rules.goal(state().goalId);
+        if (GrandPlan.phased(goal)) {
+            assignPhased();
+            return;
+        }
         for (MissionRules.Requirement requirement : goal.requirements()) {
             long outstanding = state().missions.values().stream()
                     .filter(mission -> mission.live() && mission.templateId.equals(requirement.template())).count();
@@ -264,6 +271,35 @@ public final class MoonDirector {
                 create(candidate, template);
                 return;
             }
+        }
+    }
+
+    private void assignPhased() {
+        GrandPlan.advance(rules, state());
+        Map<String, Long> shortfalls = GrandPlan.shortfalls(rules, state());
+        MissionPlanner.Context context = new MissionPlanner.Context(GrandPlan.current(rules, state()) == null
+                ? "" : GrandPlan.current(rules, state()).id(), (int) server.getPlayerList().getPlayers().stream()
+                .filter(MoonDirector::gameplayPlayer).count(), shortfalls);
+        MissionPlanner.Proposal proposal = planner.propose(rules, context)
+                .filter(value -> GrandPlan.acceptable(rules, shortfalls, value)).orElse(null);
+        if (proposal == null) {
+            if (planner.pending()) {
+                return;
+            }
+            proposal = new MissionPlanner.Heuristic().propose(rules, context).orElse(null);
+        }
+        if (proposal == null) {
+            return;
+        }
+        MissionRules.Template template = rules.template(proposal.templateId());
+        ServerPlayer candidate = server.getPlayerList().getPlayers().stream()
+                .filter(MoonDirector::gameplayPlayer)
+                .filter(player -> ready(player, template))
+                .min(Comparator.comparingLong((ServerPlayer player) ->
+                                state().player(player.getStringUUID()).nextAssignmentMillis)
+                        .thenComparing(ServerPlayer::getStringUUID)).orElse(null);
+        if (candidate != null) {
+            create(candidate, template, proposal.quantity(), proposal.briefing());
         }
     }
 
@@ -288,6 +324,12 @@ public final class MoonDirector {
                 "Unknown mission template");
         MissionRules.Template template = rules.template(templateId);
         MissionRules.require(ready(player, template), "Player is not ready, has active work, or is on cooldown");
+        if (GrandPlan.phased(rules.goal(state().goalId))) {
+            Map<String, Long> shortfalls = GrandPlan.shortfalls(rules, state());
+            MissionRules.require(shortfalls.containsKey(templateId),
+                    "No unfulfilled resource need is available for this template");
+            return create(player, template, (int) Math.min(shortfalls.get(templateId), template.quantity()), null).id;
+        }
         MissionRules.Requirement requirement = rules.goal(state().goalId).requirements().stream()
                 .filter(value -> value.template().equals(templateId)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Template does not belong to the selected goal"));
@@ -299,6 +341,10 @@ public final class MoonDirector {
     }
 
     private MissionState.Mission create(ServerPlayer player, MissionRules.Template template) {
+        return create(player, template, 0, null);
+    }
+
+    private MissionState.Mission create(ServerPlayer player, MissionRules.Template template, int quantity, String briefing) {
         MissionRules.Rank rank = rules.rank(state().player(player.getStringUUID()).score);
         MissionState.Mission mission = new MissionState.Mission();
         mission.id = state().nextMissionId++;
@@ -306,8 +352,9 @@ public final class MoonDirector {
         mission.kind = template.kind();
         mission.target = template.target();
         mission.item = template.item();
-        mission.briefing = template.briefing();
-        mission.quantity = (int) Math.clamp(Math.ceil(template.quantity() * rank.quantityMultiplier()), 1, rules.maximumQuantity());
+        mission.briefing = briefing == null || briefing.isBlank() ? template.briefing() : briefing;
+        mission.quantity = quantity > 0 ? quantity
+                : (int) Math.clamp(Math.ceil(template.quantity() * rank.quantityMultiplier()), 1, rules.maximumQuantity());
         mission.createdMillis = state().activeMillis;
         mission.durationMillis = (long) Math.clamp(template.durationMillis() * rank.durationMultiplier(),
                 rules.minimumDurationMillis(), rules.maximumDurationMillis());
@@ -396,6 +443,10 @@ public final class MoonDirector {
         player.getInventory().setChanged();
         player.containerMenu.broadcastChanges();
         mission.delivered += submitted;
+        if (GrandPlan.phased(rules.goal(state().goalId))) {
+            GrandPlan.credit(state(), mission.item, submitted);
+            GrandPlan.advance(rules, state());
+        }
         MissionLogic.progress(mission, (double) mission.delivered / mission.quantity);
         if (MissionLogic.complete(state(), mission, rules)) {
             finished(mission);

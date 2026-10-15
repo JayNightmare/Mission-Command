@@ -283,6 +283,21 @@ integrated-world owner, source/JAR inspection, or players deducing the story.
 
 ### Optional integrations
 
+**Phased goals and the mission planner.** A goal with `phases` (for example the
+default `space_elevator`) is completed by delivering the resources each phase
+needs; delivered supplies from any player count toward the shared phase total,
+and surplus carries into the next phase. New worlds select a phased goal when
+the catalogue has one. Edited `serverconfig` catalogues without `phases` keep
+working unchanged.
+
+The next delivery is chosen by a planner. By default this is a deterministic
+largest-shortfall rule. Set `MARS_PLANNER_API_ORIGIN` (HTTPS origin, or local
+HTTP with `MARS_COMMAND_ALLOW_LOCAL_HTTP`) and `MARS_MINECRAFT_SERVER_TOKEN` to
+ask the backend planner instead; its optional model only picks among
+server-computed needs and words the briefing. The mod revalidates every
+proposal and falls back to the deterministic rule when the API is unavailable
+or returns anything out of bounds.
+
 The client pack manifest lists **Millenaire 9.0.2**, Create, and KubeJS.
 These are not required dependencies and no civilisation adapter is implemented.
 The manifest's client entries alone do not certify the live server's mod set.

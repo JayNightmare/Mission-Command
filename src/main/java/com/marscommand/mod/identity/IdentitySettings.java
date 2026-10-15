@@ -13,6 +13,10 @@ public record IdentitySettings(boolean websiteLinkEnabled, String apiOrigin, Str
                 origin(websiteOrigin, allowLocalHttp));
     }
 
+    public static String validOrigin(String value, boolean allowLocalHttp) {
+        return origin(value, allowLocalHttp);
+    }
+
     private static String origin(String value, boolean allowLocalHttp) {
         if (value == null || value.length() > 512 || value.chars().anyMatch(character -> character <= 32 || character == 127)) {
             throw new IllegalArgumentException("Invalid identity service origin");
